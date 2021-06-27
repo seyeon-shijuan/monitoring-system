@@ -126,8 +126,8 @@ services:
         - 3000:3000
       networks:
         - elk
-      volumes:
-        - grafana-volume:/vol01/Docker/monitoring
+      #volumes:
+      #  - grafana-volume:/vol01/Docker/monitoring
 
 
   telegraf:
@@ -139,13 +139,16 @@ services:
       - HOST_PROC=/rootfs/proc
       - HOST_SYS=/rootfs/sys
       - HOST_MOUNT_PREFIX=/rootfs
-    network_mode: host
+    hostname: localhost
+    #network_mode: host
+    networks:
+      - elk
     volumes:
       - /:/rootfs:ro
       - /proc:/rootfs/proc:ro
       - /sys:/rootfs/sys:ro
       - /var/run/docker.sock:/var/run/docker.sock
-      - /telegraf.conf: /telegraf/telegraf.conf
+      - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf
 
 
 networks:
