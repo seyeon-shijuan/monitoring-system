@@ -1,0 +1,153 @@
+version: '3.2'
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELK_VERSION}
+    container_name: elasticsearch
+    environment:
+      - node.name=es-01
+      - node.master=true
+      - node.data=true
+      - cluster.name=monitoring-cluster
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.monitoring.collection.enabled=true
+      - discovery.type=single-node
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    ports:
+      - 9200:9200
+    networks:
+      - elk
+
+  logstash:
+    build:
+      context: logstash/
+      args:
+        ELK_VERSION: $ELK_VERSION
+    volumes:
+      - type: bind
+        source: ./logstash/config/logstash.yml
+        target: /usr/share/logstash/config/logstash.yml
+        read_only: true
+      - type: bind
+        source: ./logstash/pipeline/logstash.conf
+        target: /usr/share/logstash/pipeline/logstash.conf
+        read_only: true
+    ports:
+      - "5000:5000"
+      - "5044:5044"
+      - "9600:9600"
+    environment:
+      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      KAFKA_TEST_TOPIC: monitoring
+    networks:
+      - elk
+    depends_on:
+      - elasticsearch
+      - kafka
+      - zookeeper
+
+  kibana:
+    image: kibana:${ELK_VERSION}
+    ports:
+      - "5601:5601"
+    environment:
+      - server.name=kibana
+      - server.host="0"
+      - elasticsearch.hosts=elasticsearch:9200
+      - xpack.monitoring.ui.container.elasticsearch.enabled=true
+    networks:
+      - elk
+    depends_on:
+      - elasticsearch
+
+  zookeeper:
+    image: zookeeper:3.5.8
+    container_name: zookeeper-01
+    ports:
+      - "2181:2181"
+    networks:
+      - elk
+
+  kafka:
+    image: wurstmeister/kafka:2.13-2.6.0
+    # build:
+    #   context: kafka/kafka-docker/
+    container_name: kafka
+    environment:
+      KAFKA_BROKER_ID: 1001
+      KAFKA_ADVERTISED_LISTENERS: LISTENER_DOCKER_INTERNAL://kafka:19092,LISTENER_DOCKER_EXTERNAL://localhost:9092
+      KAFKA_LISTENERS: LISTENER_DOCKER_INTERNAL://kafka:19092,LISTENER_DOCKER_EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: LISTENER_DOCKER_INTERNAL:PLAINTEXT,LISTENER_DOCKER_EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_DOCKER_INTERNAL
+      KAFKA_RESERVED_BROKER_MAX_ID: 1002
+      # KAFKA_ADVERTISED_HOST_NAME:  127.0.0.1
+      # KAFKA_ADVERTISED_PORT: 9092
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_CREATE_TOPICS: "monitoring:3:1"   # Topic명:Partition개수:Replica개수
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "9092:9092"
+      - "19092:19092"
+    depends_on:
+      - zookeeper
+    networks:
+      - elk
+
+  kafka-manager:
+    container_name: kafka-manager
+    image: hlebalbau/kafka-manager:2.0.0.2
+    # restart: on-failure
+    depends_on:
+    - kafka
+    - zookeeper
+    environment:
+      ZK_HOSTS: zookeeper:2181
+      APPLICATION_SECRET: "random"
+      KM_ARGS: -Djava.net.preferIPv4Stack=true
+    ports:
+    - "9000:9000"
+    networks:
+    - elk
+
+  grafana:
+      image: grafana/grafana
+      container_name: grafana
+      restart: always
+      ports:
+        - 3000:3000
+      networks:
+        - elk
+      volumes:
+        - grafana-volume:/vol01/Docker/monitoring
+
+
+  telegraf:
+    image: telegraf:1.12.6
+    container_name: telegraf
+    privileged: true
+    restart: always
+    environment:
+      - HOST_PROC=/rootfs/proc
+      - HOST_SYS=/rootfs/sys
+      - HOST_MOUNT_PREFIX=/rootfs
+    network_mode: host
+    volumes:
+      - /:/rootfs:ro
+      - /proc:/rootfs/proc:ro
+      - /sys:/rootfs/sys:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /telegraf.conf: /telegraf/telegraf.conf
+
+
+networks:
+  elk:
+    driver: bridge
