@@ -17,10 +17,11 @@ mkdir certs
 (
 echo "Generating new Kafka SSL certs..."
 cd certs
+#Create a kafka broker certificate
 keytool -keystore $SERVER_KEYSTORE_JKS -alias localhost -validity 730 -genkey -storepass $PASSWORD -keypass $PASSWORD \
   -dname "CN=kafka.docker.ssl, OU=None, O=None, L=Gyeonggi, S=None, C=KR"
 openssl req -new -x509 -keyout ca-key -out ca-cert -days 730 -passout pass:$PASSWORD \
-   -subj "/C=UK/S=London/L=London/O=None/OU=None/CN=kafka.docker.ssl"
+   -subj "/C=KR/S=None/L=Gyeonggi/O=None/OU=None/CN=kafka.docker.ssl"
 keytool -keystore $SERVER_TRUSTSTORE_JKS -alias CARoot -import -file ca-cert -storepass $PASSWORD -noprompt
 keytool -keystore $CLIENT_TRUSTSTORE_JKS -alias CARoot -import -file ca-cert -storepass $PASSWORD -noprompt
 keytool -keystore $SERVER_KEYSTORE_JKS -alias localhost -certreq -file cert-file -storepass $PASSWORD -noprompt
