@@ -40,9 +40,9 @@ services:
         target: /usr/share/logstash/pipeline/logstash.conf
         read_only: true
     ports:
+      - "9600:9600"
       - "5000:5000"
       - "5044:5044"
-      - "9600:9600"
     environment:
       LS_JAVA_OPTS: "-Xmx256m -Xms256m"
       KAFKA_BOOTSTRAP_SERVERS: kafka:19092
@@ -96,10 +96,13 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
       KAFKA_SSL_KEYSTORE_LOCATION: '/certs/docker.kafka.server.keystore.jks'
       KAFKA_SSL_KEYSTORE_PASSWORD: 'dockerpass'
+      KAFKA_SSL_KEYSTORE_TYPE: JKS
       KAFKA_SSL_KEY_PASSWORD: 'dockerpass'
       KAFKA_SSL_TRUSTSTORE_LOCATION: '/certs/docker.kafka.server.truststore.jks'
       KAFKA_SSL_TRUSTSTORE_PASSWORD: 'dockerpass'
+      KAFKA_SSL_TRUSTSTORE_TYPE: JKS
       KAFKA_SSL_CLIENT_AUTH: 'required' #'none'
+
 
       # KAFKA_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: ""
       # KAFKA_REST_CLIENT_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: null
@@ -144,8 +147,8 @@ services:
         - 3000:3000
       networks:
         - elk
-      #volumes:
-      #  - grafana-volume:/vol01/Docker/monitoring
+      # volumes:
+       # - grafana-volume:/vol01/Docker/monitoring
 
 
   telegraf:
