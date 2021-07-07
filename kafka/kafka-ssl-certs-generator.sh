@@ -12,13 +12,6 @@ SERVER_KEYSTORE_PEM="docker.kafka.server.keystore.pem"
 SERVER_TRUSTSTORE_JKS="docker.kafka.server.truststore.jks"
 CLIENT_TRUSTSTORE_JKS="docker.kafka.client.truststore.jks"
 
-CLIPASS="clientpass"
-CLIENT_CA_PEM="ca.pem"
-CLIENT_CERT_PEM="cert.pem"
-CLIENT_KEY_PEM="key.pem"
-CLIENT_KEYSTORE_JKS="kafka.client.keystore.jks"
-CLIENT_KEYSTORE_P12="docker.kafka.client.keystore.p12"
-
 echo "Clearing existing Kafka SSL certs..."
 rm -rf certs
 mkdir certs
@@ -31,15 +24,11 @@ cd certs
 #######################################################################
 #2. 키스토어만들기 Generate SSL key and certificate for each Kafka broker
 echo "2. Creating server.keystore.jks with keyalg rsa"
-# keytool -keystore $SERVER_KEYSTORE_JKS -alias localhost -validity 730 -genkey -storepass $PASSWORD -keypass $PASSWORD \
-#   -dname "CN=kafka.docker.ssl, OU=None, O=None, L=Gyeonggi, C=KR" previous cmd
 keytool -keystore $SERVER_KEYSTORE_JKS -alias localhost -validity 730 -genkey -storepass $PASSWORD -keypass $PASSWORD \
   -dname "CN=kafka.docker.ssl, OU=None, O=None, L=Gyeonggi, C=KR" -storetype pkcs12 -keyalg RSA -noprompt
 keytool -list -v -keystore $SERVER_KEYSTORE_JKS -storepass $PASSWORD
 #1. CA만들기 Creating your own CA (intended to sign other certificates)
 echo "1. Creating file ca-cert and the priv.key ca-key without password"
-# openssl req -new -x509 -keyout ca-key -out ca-cert -days 730 -passout pass:$PASSWORD \
-   # -subj "/C=KR/L=Gyeonggi/O=None/OU=None/CN=kafka.docker.ssl" previous cmd
 openssl req -new -newkey rsa:4096 -x509 -keyout ca-key -out ca-cert -days 730 \
   -subj "/C=KR/L=Gyeonggi/O=None/OU=None/CN=kafka.docker.ssl" -nodes
 keytool -printcert -v -file ca-cert
@@ -60,26 +49,30 @@ openssl x509 -req -CA ca-cert -CAkey ca-key -in cert-file -out cert-signed -days
 echo "3-3. check local server certificates"
 keytool -printcert -v -file cert-signed
 keytool -list -v -keystore $SERVER_KEYSTORE_JKS -storepass $PASSWORD
-#5. CA랑 사인된 서버서티를 키스토어에 임포트하기
+#5. CA와 사인된 서버서티를 키스토어에 임포트하기
 echo "5. Importing CA and the signed server certificate into the keystore"
 keytool -keystore $SERVER_KEYSTORE_JKS -alias CARoot -import -file ca-cert -storepass $PASSWORD -keypass $PASSWORD -noprompt
 keytool -keystore $SERVER_KEYSTORE_JKS -alias localhost -import -file cert-signed -storepass $PASSWORD -keypass $PASSWORD -noprompt
-echo "5. Creating server keystore p12"
-keytool -importkeystore -srckeystore $SERVER_KEYSTORE_JKS -destkeystore $SERVER_KEYSTORE_P12 -srcstoretype JKS -deststoretype PKCS12 -srcstorepass $PASSWORD -deststorepass $PASSWORD -noprompt
+echo "6. Creating server keystore p12"
+keytool -importkeystore -srckeystore $SERVER_TRUSTSTORE_JKS -destkeystore $SERVER_KEYSTORE_P12 -srcstoretype JKS -deststoretype PKCS12 -srcstorepass $PASSWORD -deststorepass $PASSWORD -noprompt
 
 #######################################################################
-#                   Creating a client certificate                     #
+#             Creating a client certificate for Telegraf              #
 #######################################################################
-echo "creating ca.pem(ca-cert) cert.pem key.pem"
+echo "creating ca.pem(ca-cert)"
 openssl pkcs12 -nodes -in $SERVER_KEYSTORE_JKS -out ca.pem -passin pass:$PASSWORD
-
-echo "keytool creation"
+echo "Creating Keytool"
 keytool -importkeystore -srckeystore $SERVER_KEYSTORE_JKS -destkeystore client.p12 -deststoretype PKCS12 -srcstorepass $PASSWORD -storepass $PASSWORD -noprompt
-echo "cert.pem creation"
+echo "Creating cert.pem"
 openssl pkcs12 -in client.p12 -nokeys -out cert.pem -passin pass:$PASSWORD
-echo "key.pem creation"
+echo "Creating key.pem"
 openssl pkcs12 -in client.p12 -nodes -nocerts -out key.pem -passin pass:$PASSWORD
 
-
 chmod +rx *
+
+\cp -f ca.pem ../../telegraf/ca.pem
+\cp -f cert.pem ../../telegraf/cert.pem
+\cp -f key.pem ../../telegraf/key.pem
+
+
 )
