@@ -70,6 +70,7 @@ openssl pkcs12 -in client.p12 -nodes -nocerts -out key.pem -passin pass:$PASSWOR
 
 chmod +rx *
 
+echo "Copying telegraf certtificates to the telegraf directory"
 \cp -f ca.pem ../../telegraf/ca.pem
 \cp -f cert.pem ../../telegraf/cert.pem
 \cp -f key.pem ../../telegraf/key.pem
