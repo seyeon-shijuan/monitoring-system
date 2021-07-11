@@ -1,0 +1,7 @@
+# Kafka metrics collected using the Kafka protocol
+- module: kafka
+  #metricsets:
+  #  - partition
+  #  - consumergroup
+  period: 10s
+  hosts: ["kafka:9092"]
